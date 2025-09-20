@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pizarra Radiante ✨</title>
+    
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+   
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+       
+        :root {
+            --bg-canvas: #ffffff;
+            --text-light: #f0f4f8;
+            --text-dark: #333;
+            --border-color: rgba(255, 255, 255, 0.2);
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --gradient-accent: linear-gradient(45deg, #f86cf8, #6d78ff);
+            --gradient-accent-hover: linear-gradient(45deg, #ff8cff, #8a93ff);
+            --toolbar-width: 280px;
+            --transition-speed: 0.4s;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .app-container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+   
+        #loader {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #2c3e50;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease;
+        }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top-color: var(--text-light);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loader.hidden { opacity: 0; pointer-events: none; }
+
+        
+        .toolbar {
+            width: var(--toolbar-width);
+            background: rgba(20, 30, 40, 0.75);
+            backdrop-filter: blur(12px) saturate(180%);
+            color: var(--text-light);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 8px 32px 0 var(--shadow-color);
+            border-right: 1px solid var(--border-color);
+            z-index: 10;
+            transition: transform var(--transition-speed) ease;
+        }
+        .toolbar.collapsed {
+            transform: translateX(calc(-1 * var(--toolbar-width)));
+        }
+
+        .toolbar-content {
+            display: flex; flex-direction: column;
+            height: 100%; overflow-y: auto;
+        }
+        .tool-section { padding-bottom: 20px; }
+        .tool-section h3 {
+            margin: 0 0 15px 0; font-weight: 700;
+            color: var(--text-light);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+        .tool-btn {
+            height: 50px; background: rgba(255, 255, 255, 0.1);
+            color: var(--text-light);
+            border: 1px solid var(--border-color); border-radius: 10px;
+            font-size: 1.4rem; cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tool-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .tool-btn.active {
+            background: var(--gradient-accent);
+            box-shadow: 0 0 15px #f86cf8, 0 0 20px #6d78ff;
+            border-color: transparent;
+        }
+
+        .control-group label { display: block; margin-bottom: 10px; font-weight: 600; }
+        input[type="range"] { width: 100%; }
+        input[type="color"] { width: 100%; height: 45px; border: none; padding: 0; background: none; border-radius: 8px; overflow: hidden; }
+        .bottom-actions { margin-top: auto; }
+        
+        
+        #toggle-toolbar {
+            position: fixed; 
+            top: 50%;
+            left: var(--toolbar-width); 
+            transform: translateY(-50%);
+            width: 40px; height: 40px;
+            background: var(--gradient-accent);
+            border: none; border-radius: 0 50% 50% 0;
+            color: white; font-size: 1.5rem;
+            cursor: pointer; z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            transition: left var(--transition-speed) ease, transform var(--transition-speed) ease, border-radius var(--transition-speed) ease;
+        }
+        .toolbar.collapsed + #toggle-toolbar {
+            left: 0; 
+            border-radius: 0 50% 50% 0; 
+        }
+
+       
+        .canvas-area {
+            flex-grow: 1;
+            padding: 25px;
+            transition: margin-left var(--transition-speed) ease;
+        }
+        canvas {
+            width: 100%; height: 100%;
+            background-color: var(--bg-canvas);
+            border-radius: 15px;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            touch-action: none;
+        }
+        #brush-preview {
+            position: absolute; border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: width 0.1s, height 0.1s, background 0.1s;
+        }
+
+        
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+        .toast {
+            background: var(--gradient-accent); color: var(--text-light);
+            padding: 15px 25px; border-radius: 8px;
+            margin-top: 10px; box-shadow: 0 4px 15px var(--shadow-color);
+            opacity: 0; transform: translateY(20px);
+            animation: fadeInToast 0.5s forwards; font-weight: 600;
+        }
+        @keyframes fadeInToast { to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 900px) {
+            .app-container { flex-direction: column; }
+            .toolbar { position: relative; width: 100%; height: auto; transform: none !important; border-right: none; border-bottom: 1px solid var(--border-color); }
+            #toggle-toolbar { display: none; } 
+            .canvas-area { height: 100%; }
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="app-container">
+       
+        <aside class="toolbar" id="toolbar">
+            <div class="toolbar-content">
+                
+                <div class="tool-section">
+                    <h3>Herramientas</h3>
+                    <div class="tools-grid">
+                        <button class="tool-btn active" id="brush" title="Pincel"><i class="fas fa-paint-brush"></i></button>
+                        <button class="tool-btn" id="eraser" title="Borrador"><i class="fas fa-eraser"></i></button>
+                        <button class="tool-btn" id="fill" title="Relleno"><i class="fas fa-fill-drip"></i></button>
+                        <button class="tool-btn" id="eyedropper" title="Cuentagotas"><i class="fas fa-eye-dropper"></i></button>
+                    </div>
+                </div>
+                <div class="tool-section">
+                    <h3>Figuras</h3>
+                    <div class="tools-grid">
+                        <button class="tool-btn" id="rectangle" title="Rectángulo"><i class="far fa-square"></i></button>
+                        <button class="tool-btn" id="circle" title="Círculo"><i class="far fa-circle"></i></button>
+                        <button class="tool-btn" id="triangle" title="Triángulo"><i class="fas fa-exclamation-triangle"></i></button>
+                        <button class="tool-btn" id="line" title="Línea"><i class="fas fa-minus"></i></button>
+                        <button class="tool-btn" id="star" title="Estrella"><i class="far fa-star"></i></button>
+                    </div>
+                </div>
+                <div class="tool-section">
+                    <h3>Opciones</h3>
+                    <div class="control-group">
+                        <label for="color-picker">Color</label>
+                        <input type="color" id="color-picker" value="#f86cf8">
+                    </div>
+                    <div class="control-group">
+                        <label for="brush-width">Grosor: <span id="brush-width-label">10</span></label>
+                        <input type="range" id="brush-width" min="1" max="100" value="10">
+                    </div>
+                </div>
+                <div class="tool-section bottom-actions">
+                    <h3>Acciones</h3>
+                    <div class="tools-grid">
+                        <button class="tool-btn" id="undo" title="Deshacer"><i class="fas fa-undo"></i></button>
+                        <button class="tool-btn" id="redo" title="Rehacer"><i class="fas fa-redo"></i></button>
+                        <button class="tool-btn" id="clear-canvas" title="Limpiar"><i class="fas fa-trash-alt"></i></button>
+                        <button class="tool-btn" id="save-image" title="Guardar"><i class="fas fa-save"></i></button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+    
+        <button id="toggle-toolbar" title="Ocultar Barra"><i class="fas fa-chevron-left"></i></button>
+
+       
+        <main class="canvas-area" id="canvas-area">
+            <canvas id="pizarra"></canvas>
+            <div id="brush-preview"></div>
+        </main>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        
+        document.addEventListener('DOMContentLoaded', () => {
+         
+            const canvas = document.getElementById('pizarra');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const colorPicker = document.getElementById('color-picker');
+            const brushWidth = document.getElementById('brush-width');
+            const brushWidthLabel = document.getElementById('brush-width-label');
+            const toolBtns = document.querySelectorAll('.tool-btn');
+            const brushPreview = document.getElementById('brush-preview');
+            const toastContainer = document.getElementById('toast-container');
+            const loader = document.getElementById('loader');
+            const toolbar = document.getElementById('toolbar');
+            const toggleToolbarBtn = document.getElementById('toggle-toolbar');
+            const canvasArea = document.getElementById('canvas-area');
+
+         
+            let isPainting = false, isErasing = false;
+            let currentTool = 'brush', prevTool = 'brush';
+            let currentWidth = 10, currentColor = '#f86cf8';
+            let startX, startY, canvasSnapshot;
+            let history = [], historyStep = -1;
+            
+        
+            const cursors = {
+                brush: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l7.5 1.5L18 13z"/></svg>') 4 20, auto`,
+                eraser: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2"><path d="M20 20H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2zM10 6L2 6l4 4h4V6z"/></svg>') 4 4, auto`,
+                fill: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2"><path d="M18 20a4 4 0 0 0 4-4V6a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h2v-3a4 4 0 0 1 8 0v3h2zM7 10a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-2z"/></svg>') 4 4, auto`,
+                eyedropper: 'crosshair',
+                default: 'crosshair'
+            };
+            const updateCursor = () => { canvas.style.cursor = cursors[currentTool] || cursors.default; };
+
+            
+            const setCanvasSize = () => {
+                const dpr = window.devicePixelRatio || 1;
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+                redrawHistory();
+            };
+            
+            
+            const saveState = () => {
+                if (historyStep < history.length - 1) history.splice(historyStep + 1);
+                history.push(canvas.toDataURL());
+                historyStep++;
+            };
+            const redrawHistory = (save = false) => {
+                if (historyStep >= 0 && history[historyStep]) {
+                    const img = new Image();
+                    img.src = history[historyStep];
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+                    };
+                } else {
+                    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-canvas');
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    if (save) saveState();
+                }
+            };
+            const undo = () => { if (historyStep > 0) { historyStep--; redrawHistory(); } };
+            const redo = () => { if (historyStep < history.length - 1) { historyStep++; redrawHistory(); } };
+            
+         
+            const getMousePos = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                return { x: clientX - rect.left, y: clientY - rect.top };
+            };
+            const startPainting = (e) => {
+                if (currentTool === 'eyedropper') { useEyedropper(e); return; }
+                if (currentTool === 'fill') { const { x, y } = getMousePos(e); floodFill(Math.floor(x), Math.floor(y)); return; }
+                isPainting = true;
+                const { x, y } = getMousePos(e);
+                startX = x; startY = y;
+                canvasSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineWidth = currentWidth;
+                ctx.strokeStyle = isErasing ? getComputedStyle(document.documentElement).getPropertyValue('--bg-canvas') : currentColor;
+                ctx.fillStyle = currentColor;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+            };
+            const paint = (e) => {
+                if (!isPainting) return;
+                e.preventDefault();
+                const drawShape = (shapeFunc) => {
+                    ctx.putImageData(canvasSnapshot, 0, 0);
+                    const { x, y } = getMousePos(e);
+                    shapeFunc(x, y);
+                };
+                const shapes = {
+                    rectangle: (x, y) => ctx.strokeRect(startX, startY, x - startX, y - startY),
+                    circle: (x, y) => { ctx.beginPath(); const r = Math.hypot(x - startX, y - startY); ctx.arc(startX, startY, r, 0, 2 * Math.PI); ctx.stroke(); },
+                    triangle: (x, y) => { ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x, y); ctx.lineTo(startX * 2 - x, y); ctx.closePath(); ctx.stroke(); },
+                    line: (x, y) => { ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x, y); ctx.stroke(); },
+                    star: (x, y) => {
+                        const radius = Math.hypot(x - startX, y - startY);
+                        let rot = Math.PI / 2 * 3;
+                        const spikes = 5, step = Math.PI / spikes;
+                        ctx.beginPath();
+                        for (let i = 0; i < spikes * 2; i++) {
+                            const r = (i % 2 === 0) ? radius : radius / 2;
+                            ctx.lineTo(startX + Math.cos(rot) * r, startY + Math.sin(rot) * r);
+                            rot += step;
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                    }
+                };
+                if (shapes[currentTool]) drawShape(shapes[currentTool]);
+                else { const { x, y } = getMousePos(e); ctx.lineTo(x, y); ctx.stroke(); }
+            };
+            const stopPainting = () => { if (!isPainting) return; ctx.closePath(); isPainting = false; saveState(); };
+
+           
+            const floodFill = (startX, startY) => {
+                showToast("Bote de pintura (demo).");
+                ctx.fillStyle = currentColor;
+                ctx.fillRect(0,0, canvas.width, canvas.height); 
+                saveState();
+            };
+            const useEyedropper = (e) => {
+                const { x, y } = getMousePos(e);
+                const dpr = window.devicePixelRatio || 1;
+                const pixel = ctx.getImageData(x * dpr, y * dpr, 1, 1).data;
+                currentColor = `#${((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1)}`;
+                colorPicker.value = currentColor;
+                showToast(`Color ${currentColor.toUpperCase()} seleccionado!`);
+                document.getElementById(currentTool).classList.remove('active');
+                currentTool = prevTool;
+                document.getElementById(currentTool).classList.add('active');
+                updateCursor();
+            };
+
+           
+            const updateBrushPreview = (e) => {
+                brushPreview.style.left = `${e.clientX}px`;
+                brushPreview.style.top = `${e.clientY}px`;
+                brushPreview.style.width = `${currentWidth}px`;
+                brushPreview.style.height = `${currentWidth}px`;
+                brushPreview.style.background = isErasing ? 'rgba(255,255,255,0.5)' : currentColor;
+                brushPreview.style.border = `2px solid ${isErasing ? 'rgba(0,0,0,0.5)' : 'transparent'}`;
+            };
+            const showToast = (message) => {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => { toast.remove(); }, 3000);
+            };
+
+            toolBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const actionButtons = ['undo', 'redo', 'clear-canvas', 'save-image'];
+                    if (actionButtons.includes(btn.id)) return;
+                    document.querySelector('.tool-btn.active')?.classList.remove('active');
+                    btn.classList.add('active');
+                    prevTool = currentTool !== 'eyedropper' ? currentTool : prevTool;
+                    currentTool = btn.id;
+                    isErasing = currentTool === 'eraser';
+                    updateCursor();
+                });
+            });
+            
+           
+            toggleToolbarBtn.addEventListener('click', () => {
+                toolbar.classList.toggle('collapsed');
+                const icon = toggleToolbarBtn.querySelector('i');
+                icon.className = toolbar.classList.contains('collapsed') ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+             
+                setTimeout(setCanvasSize, 400); 
+            });
+            
+           
+            ['mousedown', 'touchstart'].forEach(evt => canvas.addEventListener(evt, startPainting, { passive: false }));
+            ['mousemove', 'touchmove'].forEach(evt => canvas.addEventListener(evt, paint, { passive: false }));
+            ['mouseup', 'mouseleave', 'touchend'].forEach(evt => canvas.addEventListener(evt, stopPainting));
+            ['mousemove', 'touchmove'].forEach(evt => canvas.addEventListener(evt, e => updateBrushPreview(e.touches ? e.touches[0] : e)));
+            canvas.addEventListener('mouseenter', () => brushPreview.style.display = 'block');
+            canvas.addEventListener('mouseleave', () => brushPreview.style.display = 'none');
+            
+           
+            window.addEventListener('resize', setCanvasSize);
+            colorPicker.addEventListener('input', (e) => currentColor = e.target.value);
+            brushWidth.addEventListener('input', (e) => { currentWidth = e.target.value; brushWidthLabel.textContent = currentWidth; });
+            document.getElementById('undo').addEventListener('click', undo);
+            document.getElementById('redo').addEventListener('click', redo);
+            document.getElementById('clear-canvas').addEventListener('click', () => {
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-canvas');
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                saveState();
+                showToast('Lienzo limpiado ✨');
+            });
+            document.getElementById('save-image').addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.download = `pizarra-radiante-${Date.now()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                showToast('¡Imagen guardada! 🖼️');
+            });
+
+           
+            loader.classList.add('hidden');
+            setCanvasSize();
+            redrawHistory(true);
+            updateCursor();
+        });
+    </script>
+</body>
+</html>
